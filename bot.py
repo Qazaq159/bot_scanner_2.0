@@ -1,5 +1,4 @@
 import telebot as t
-import loopp
 from jusanmart import Product
 import time
 
@@ -33,10 +32,10 @@ def push_to_scan(products):
         global saved_prices
         for key in products:
             for tovar in products[key]:
-                zat = Product(tovar
+                zat = Product(tovar)
                 if zat.name not in saved_prices:
                     saved_prices[zat.name] = zat.price
-                    print(saved_prices)
+                    print(saved)
                 else:
                     if saved_prices[zat.name] != zat.price:
                         send(zat, key)
