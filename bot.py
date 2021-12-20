@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import telebot as t
 from jusanmart import Product
 import time
 from datetime import datetime
