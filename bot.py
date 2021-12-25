@@ -2,20 +2,19 @@
 from jusanmart import Product
 import time
 from datetime import datetime
+import pytz
+import telebot as tele
+from config import TOKEN
+from db import DataModel, DB
 
-from aiogram import Bot, types
-from aiogram.dispatcher import Dispatcher
-from aiogram.utils import executor
+bot = tele.TeleBot(TOKEN)
+ala = pytz.timezone('Asia/Almaty')
 
+products_table = DB('table.db')
+products_original = DataModel(products_table.get_connection())
+products_original.init_table()
 
-TOKEN = '5050251865:AAFMkaaG-qBP9Vnsn8R2FJ2-5r5MOMo4pW4'
-
-bot = Bot(TOKEN)
-dp = Dispatcher(bot)
-
-
-products_in_sell = dict()
-saved_prices = dict()
+prices = dict()
 
 
 def form(info):
@@ -23,60 +22,49 @@ def form(info):
     shop = info.shop
     price = info.price
 
-    return f'{datetime.now().strftime("%Y-%m-%d %H:%M")} Цена на "{name}" изменен {price} в магазине {shop}'
+    return f'{datetime.now(ala).strftime("%Y-%m-%d %H:%M")} Цена на "{name}" изменен {price} в магазине {shop}'
 
 
-async def send(key, id):
-    print(id + f'  {form(key)}')
-    await bot.send_message(id, text=form(key))
+def send(key, chat_id):
+    print(chat_id + f' {datetime.now(ala).strftime("%Y-%m-%d %H:%M")} ' + f' {form(key)}')
+    bot.send_message(chat_id, text=form(key))
 
 
-@dp.message_handler(commands=['start'])
-async def main(message: types.Message):
-    await message.reply('Secret Key')
+@bot.message_handler(commands=['start'])
+def main(message):
+    bot.send_message(message.chat.id, text='Индивидуальный код:')
 
 
-def push_to_scan(products):
-    print('started')
+def push_to_scan(products_links):
+    global prices
+    print(products_links)
     while True:
-        global saved_prices
-        for key in products:
-            for tovar in products[key]:
-                zat = Product(tovar)
-                if zat.name not in saved_prices:
-                    saved_prices[zat.name] = zat.price
-                    print(saved_prices)
-                else:
-                    if saved_prices[zat.name] != zat.price:
-                        saved_prices[zat.name] = zat.price
-                        send(zat, key)
-
-        time.sleep(300)
+        for link in products_links:
+            product = Product(link[1])
+            if product.name not in prices:
+                prices[product.name] = product.price
+            elif product.price != prices[product.name]:
+                prices[product.name] = product.price
+                send(product, chat_id=link[2])
+            time.sleep(7)
 
 
-@dp.message_handler()
-async def check(message: types.Message):
-    global products_in_sell
-    if message.text.lower() == 'complete':
-        await bot.send_message(message.from_user.id, text='Ссылка на товар: ')
+@bot.message_handler()
+def check(message):
+    if message.text.lower() == 'add link':
+        bot.send_message(message.chat.id, text='Отправьте ссылку на товар ->')
     elif 'https://jmart.kz' in message.text:
-        key = message.text
-        await bot.send_message(message.from_user.id, text='Сохранён!')
-        if str(message.from_user.id) in products_in_sell.keys():
-            products_in_sell[str(message.from_user.id)].append(message.text)
-        else:
-            if message.from_user.id not in products_in_sell:
-                products_in_sell[str(message.from_user.id)] = []
-            else:
-                products_in_sell[str(message.from_user.id)].append(message.text)
+        if products_original.check_link(message.text, message.chat.id) == False:
+            products_original.insert_product(link=str(message.text), chat_id=message.chat.id)
+        bot.send_message(message.chat.id, text='Сохранён, чтобы еще добавить отправьте ссылку ->')
+    elif message.text.lower() == 'complete':
+        links = products_original.get_data(chat_id=message.chat.id)
+        bot.send_message(message.chat.id, text='Все товары сохранены, чтобы еще добавить напишете "add link"')
+        push_to_scan(links)
 
-        await bot.send_message(message.from_user.id, text='Добавить еще? Если все, напишите "complete"')
-    elif 'add link' in message.text.lower():
-        await bot.send_message(message.from_user.id, text='Вашы товары сохранены. Чтобы добавить еще напишите "add link"')
-        push_to_scan(products_in_sell)
 
 if __name__ == '__main__':
-    executor.start_polling(dp)
+    bot.infinity_polling()
 
 # macbook = Product('1336396')
 #
