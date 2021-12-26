@@ -46,6 +46,8 @@ def push_to_scan(products_links):
             elif product.price != prices[product.name]:
                 prices[product.name] = product.price
                 send(product, chat_id=link[2])
+            # elif product.price == prices[product.name]:
+            #     print('Constant price for this item >>!' + product.name + ': ' + product.price)
             time.sleep(7)
 
 
@@ -54,13 +56,25 @@ def check(message):
     if message.text.lower() == 'add link':
         bot.send_message(message.chat.id, text='Отправьте ссылку на товар ->')
     elif 'https://jmart.kz' in message.text:
-        if products_original.check_link(message.text, message.chat.id) == False:
-            products_original.insert_product(link=str(message.text), chat_id=message.chat.id)
+        if message.text.count('jmart.kz') > 1:
+            links = str(message.text).split('\n')
+            if links.count('') != 0:
+                links.remove('')
+            for link in links:
+                if products_original.check_link(link, message.chat.id) == False:
+                    products_original.insert_product(link=str(link), chat_id=message.chat.id)
+        else:
+            if products_original.check_link(message.text, message.chat.id) == False:
+                products_original.insert_product(link=str(message.text), chat_id=message.chat.id)
         bot.send_message(message.chat.id, text='Сохранён, чтобы еще добавить отправьте ссылку ->')
     elif message.text.lower() == 'complete':
         links = products_original.get_data(chat_id=message.chat.id)
         bot.send_message(message.chat.id, text='Все товары сохранены, чтобы еще добавить напишете "add link"')
         push_to_scan(links)
+    elif message.text.lower() == '??delete??':
+        products_original.delete()
+        products_original.init_table()
+        bot.send_message(message.chat.id, text='Your data has resetted (X)')
 
 
 if __name__ == '__main__':
